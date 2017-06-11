@@ -1,5 +1,6 @@
 import React from 'react';
 import ReactDOM from 'react-dom';
+import './index.html';
 
 const root = document.createElement('div');
 document.body.appendChild(root);
