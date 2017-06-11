@@ -1,0 +1,25 @@
+{
+  "name": "bilt",
+  "version": "0.0.1",
+  "description": "A build tool that just works.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/erquhart/bilt.git"
+  },
+  "keywords": [
+    "build",
+    "system",
+    "make",
+    "tool"
+  ],
+  "author": "Shawn Erquhart <shawn@erquh.art> (https://erquh.art)",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/erquhart/bilt/issues"
+  },
+  "homepage": "https://github.com/erquhart/bilt#readme"
+}
