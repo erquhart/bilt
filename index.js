@@ -25,9 +25,18 @@ const scripts = htmlPaths.map(p => {
 
 const flattenedScripts = flatten(scripts);
 
+copyPaths.forEach(p => {
+  const newPath = path.relative(path.join(__dirname, 'example'), p);
+  fs.copySync(p, path.join('dest', newPath));
+});
+
 const entryPoints = flattenedScripts.reduce((acc, script) => {
   const name = path.basename(script.assetPath, '.js');
-  acc[name] = path.join(script.htmlDir, script.assetPath);
+  acc[name] = [
+    'webpack-dev-server/client?http://localhost:8080',
+    'webpack/hot/dev-server',
+    path.join(script.htmlDir, script.assetPath),
+  ];
   return acc;
 }, {});
 
@@ -35,7 +44,6 @@ const compiler = webpack({
   entry: entryPoints,
   output: {
     path: path.resolve(__dirname, 'dest'),
-    filename: '[name].js',
   },
   module: {
     rules: [
@@ -51,13 +59,21 @@ const compiler = webpack({
       },
     ],
   },
+  plugins: [
+    new webpack.HotModuleReplacementPlugin()
+  ],
 });
 
 const server = new WebpackDevServer(compiler, {
   contentBase: path.join(__dirname, 'dest'),
+  watchContentBase: true,
+  hot: true,
   compress: true,
   stats: {
     colors: true,
+  },
+  staticOptions: {
+    extensions: ['html', 'htm'],
   },
 });
 
