@@ -1,5 +1,6 @@
 const path = require('path');
 const fs = require('fs-extra');
+const opn = require('opn');
 const flatten = require('lodash/flatten');
 const walk = require('klaw-sync');
 const cheerio = require('cheerio');
@@ -78,6 +79,7 @@ const server = new WebpackDevServer(compiler, {
 });
 
 server.listen(8080, '127.0.0.1', () => console.log('Starting server on http://localhost:8080'));
+opn('http://localhost:8080');
 
 /*
 compiler.run((err, stats) => {

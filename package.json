@@ -33,6 +33,7 @@
     "html-webpack-plugin": "^2.28.0",
     "klaw-sync": "^2.1.0",
     "lodash": "^4.17.4",
+    "opn": "^5.1.0",
     "webpack": "^2.6.1"
   },
   "devDependencies": {
