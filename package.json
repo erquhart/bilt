@@ -36,6 +36,8 @@
     "fs-extra": "^3.0.1",
     "html-webpack-plugin": "^2.28.0",
     "klaw-sync": "^2.1.0",
+    "less": "^2.7.2",
+    "less-loader": "^4.0.4",
     "lodash": "^4.17.4",
     "node-sass": "^4.5.3",
     "opn": "^5.1.0",

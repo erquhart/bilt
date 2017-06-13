@@ -15,14 +15,15 @@ const tempDir = 'tmp';
 fs.removeSync(outputDir);
 fs.removeSync(tempDir);
 
-const paths = walk('./example/').map(file => file.path);
-const copyPaths = paths.filter(p => !['.html', '.css', '.js'].includes(path.extname(p)));
+const paths = walk('./example/', { nodir: true }).map(file => file.path);
+const copyPaths = paths.filter(p => !['.html', '.css', '.scss', '.less', '.js'].includes(path.extname(p)));
 const htmlPaths = paths.filter(p => path.extname(p) === '.html');
 const htmlFiles = htmlPaths.map(p => ({
   ch: cheerio.load(fs.readFileSync(p, 'utf8')),
   htmlPath: p,
   htmlDir: path.dirname(p),
   htmlName: path.basename(p, '.html'),
+  assetAbsoluteWebDir: path.relative(path.join(__dirname, 'example'), path.dirname(p)),
 }));
 const scripts = flatten(htmlFiles.map(file => {
   return file.ch('script').map((i, el) => (Object.assign({}, file, {
@@ -50,11 +51,12 @@ const transformedHtmlFiles = htmlFiles.map(file => {
   if (styles.length) {
     stylesheetElements.remove();
 
-    console.log(developmentMode);
     if (developmentMode) {
-      file.ch('head').append(`<script src="${file.htmlName}-styles.js"></script>`);
+      const assetPath = path.join('/', file.assetAbsoluteWebDir, `${file.htmlName}-styles.js`);
+      file.ch('head').append(`<script src="${assetPath}"></script>`);
     } else {
-      file.ch('head').append(`<link rel="stylesheet" href="${file.htmlName}-styles.css"/>`);
+      const assetPath = path.join('/', file.assetAbsoluteWebDir, `${file.htmlName}-styles.css`);
+      file.ch('head').append(`<link rel="stylesheet" href="${assetPath}"/>`);
     }
     const importContent = styles.map(style => `import '${style.importPath}';`).join('\n');
     const relativeBase = path.relative(path.join(__dirname, 'example'), file.htmlDir);
@@ -81,7 +83,8 @@ copyPaths.forEach(p => {
 });
 
 const entryPoints = scripts.reduce((acc, script) => {
-  const name = path.basename(script.assetPath, '.js');
+  const name = path.join(script.assetAbsoluteWebDir, path.basename(script.assetPath, '.js'));
+  console.log(name)
   acc[name] = [ script.assetPath ];
 
   if (developmentMode) {
@@ -124,6 +127,10 @@ const devCompiler = webpack({
       {
         test: /\.scss$/,
         use: ['style-loader', 'css-loader', 'sass-loader'],
+      },
+      {
+        test: /\.less$/,
+        use: ['style-loader', 'css-loader', 'less-loader'],
       },
     ],
   },
@@ -170,6 +177,16 @@ const prodCompiler = webpack({
             loader: 'css-loader',
           }, {
             loader: 'sass-loader',
+          }],
+        }),
+      },
+      {
+        test: /\.less$/,
+        use: ExtractTextPlugin.extract({
+          use: [{
+            loader: 'css-loader',
+          }, {
+            loader: 'less-loader',
           }],
         }),
       },
