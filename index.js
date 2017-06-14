@@ -26,9 +26,12 @@ const htmlFiles = htmlPaths.map(p => ({
   assetAbsoluteWebDir: path.relative(path.join(__dirname, 'example'), path.dirname(p)),
 }));
 const scripts = flatten(htmlFiles.map(file => {
-  return file.ch('script').map((i, el) => (Object.assign({}, file, {
-    assetPath: path.join(file.htmlDir, file.ch(el).attr('src')),
-  }))).get();
+  return file.ch('script').map((i, el) => {
+    const assetPath = path.join(file.htmlDir, file.ch(el).attr('src'));
+    const relativeDir = path.relative(path.join(__dirname, 'example'), path.dirname(assetPath));
+    const entryPointName = path.join(relativeDir, path.basename(assetPath, '.js'));
+    return Object.assign({}, file, { assetPath, entryPointName });
+  }).get();
 }));
 
 const transformedHtmlFiles = htmlFiles.map(file => {
@@ -39,7 +42,7 @@ const transformedHtmlFiles = htmlFiles.map(file => {
     const name = path.basename(assetPath, ext);
     const relativeBase = path.relative(path.join(__dirname, 'example'), file.htmlDir);
     const base = path.relative(path.join(__dirname, tempDir, relativeBase), file.htmlDir);
-    const importPath = path.join(base, path.basename(assetPath));
+    const importPath = path.join(base, assetPath);
     return Object.assign({}, file, {
       assetPath: assetPath.startsWith('/') ? assetPath.slice(1) : assetPath,
       importPath,
@@ -62,8 +65,9 @@ const transformedHtmlFiles = htmlFiles.map(file => {
     const relativeBase = path.relative(path.join(__dirname, 'example'), file.htmlDir);
     const base = path.join(__dirname, tempDir, relativeBase);
     const assetPath = path.join(base, `${file.htmlName}-styles.js`);
+    const entryPointName = path.join(file.assetAbsoluteWebDir, path.basename(assetPath, '.js'));
     fs.outputFileSync(assetPath, importContent);
-    scripts.push(Object.assign({}, file, { assetPath }));
+    scripts.push(Object.assign({}, file, { assetPath, entryPointName }));
   }
 
   return {
@@ -82,19 +86,18 @@ copyPaths.forEach(p => {
   fs.copySync(p, path.join('dest', newPath));
 });
 
-const entryPoints = scripts.reduce((acc, script) => {
-  const name = path.join(script.assetAbsoluteWebDir, path.basename(script.assetPath, '.js'));
-  console.log(name)
-  acc[name] = [ script.assetPath ];
+const entryPoints = scripts.reduce((acc, { assetPath, entryPointName }) => {
+  acc[entryPointName] = [ assetPath ];
 
   if (developmentMode) {
-    acc[name] = [
+    acc[entryPointName] = [
       'webpack-dev-server/client?http://localhost:8080',
       'webpack/hot/dev-server',
-    ].concat(acc[name]);
+    ].concat(acc[entryPointName]);
   }
   return acc;
 }, {});
+
 
 const devCompiler = webpack({
   entry: entryPoints,
@@ -120,9 +123,6 @@ const devCompiler = webpack({
       {
         test:/\.(png|jpg|gif|svg|eot|ttf|woff|woff2)$/,
         loader: 'file-loader',
-        query: {
-          useRelativePath: true,
-        },
       },
       {
         test: /\.scss$/,
