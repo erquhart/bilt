@@ -91,14 +91,15 @@ const transformedHtmlFiles = htmlFiles.map(file => {
       const importContent = styleGroup.map(style => `import '${style.importPath}';`).join('\n');
       const relativeBase = path.relative(path.join(process.cwd(), srcDir), file.htmlDir);
       const base = path.join(process.cwd(), tempDir, relativeBase);
-      const assetPath = path.join(base, `${file.htmlName}-styles.js`);
+      const name = `${file.htmlName}-styles${index ? `-${index}` : ''}`;
+      const assetPath = path.join(base, `${name}.js`);
       const entryPointName = path.join(file.assetAbsoluteWebDir, path.basename(assetPath, '.js'));
 
       if (developmentMode) {
-        const origAssetPath = path.join('/', file.assetAbsoluteWebDir, `${file.htmlName}-styles.js`);
+        const origAssetPath = path.join('/', file.assetAbsoluteWebDir, `${name}.js`);
         file.ch(styleGroup[0].el).replaceWith(`<script src="${origAssetPath}"></script>`);
       } else {
-        const origAssetPath = path.join('/', file.assetAbsoluteWebDir, `${file.htmlName}-styles.css`);
+        const origAssetPath = path.join('/', file.assetAbsoluteWebDir, `${name}.css`);
         file.ch(styleGroup[0].el).replaceWith(`<link rel="stylesheet" href="${origAssetPath}"/>`);
       }
 
@@ -121,9 +122,10 @@ const transformedHtmlFiles = htmlFiles.map(file => {
       const importContent = scriptGroup.map(script => `import '${script.importPath}';`).join('\n');
       const relativeBase = path.relative(path.join(process.cwd(), srcDir), file.htmlDir);
       const base = path.join(process.cwd(), tempDir, relativeBase);
-      const assetPath = path.join(base, `${file.htmlName}-scripts${index || ''}.js`);
+      const name = `${file.htmlName}-scripts${index ? `-${index}` : ''}.js`;
+      const assetPath = path.join(base, name);
       const entryPointName = path.join(file.assetAbsoluteWebDir, path.basename(assetPath, '.js'));
-      const origAssetPath = path.join('/', file.assetAbsoluteWebDir, `${file.htmlName}-scripts.js`);
+      const origAssetPath = path.join('/', file.assetAbsoluteWebDir, name);
       file.ch(scriptGroup[0].el).replaceWith(`<script src="${origAssetPath}"></script>`);
       _.tail(scriptGroup).forEach(script => file.ch(script.el).remove());
       fs.outputFileSync(assetPath, importContent);
