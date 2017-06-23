@@ -17,17 +17,16 @@ const opts = {
   tempDir: argv.temp || 'tmp',
 };
 
-const { developmentMode, destDir, tempDir } = opts;
-const srcDirExists = fs.existsSync(opts.srcDir);
-const srcDir = srcDirExists ? opts.srcDir : process.cwd();
+const { developmentMode, srcDir, destDir, tempDir } = opts;
 
 fs.removeSync(destDir);
 fs.removeSync(tempDir);
 
-if (!srcDirExists) {
-  console.log('Expected source directory ' + srcDir + 'does not exist.\n\nUsing current directory as source.');
+if (!fs.existsSync(opts.srcDir)) {
+  console.log('Expected source directory ' + opts.srcDir + ' does not exist.');
+  process.exit(1);
 } else {
-  console.log('Using ' + srcDir + ' as source.');
+  console.log('Using ' + opts.srcDir + ' as source.');
 }
 
 const paths = walk(srcDir, { nodir: true }).map(file => file.path);
