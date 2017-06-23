@@ -11,13 +11,13 @@ const ExtractTextPlugin = require('extract-text-webpack-plugin');
 const WebpackDevServer = require('webpack-dev-server');
 
 const developmentMode = argv.dev;
-
-const outputDir = 'dest';
-const tempDir = 'tmp';
-fs.removeSync(outputDir);
+const srcDir = argv.src || 'src';
+const destDir = argv.dest || 'dest';
+const tempDir = 'bilt-temp';
+fs.removeSync(destDir);
 fs.removeSync(tempDir);
 
-const paths = walk('./example/', { nodir: true }).map(file => file.path);
+const paths = walk(srcDir, { nodir: true }).map(file => file.path);
 const copyPaths = paths.filter(p => !['.html', '.css', '.scss', '.less', '.js'].includes(path.extname(p)));
 const htmlPaths = paths.filter(p => path.extname(p) === '.html');
 const htmlFiles = htmlPaths.map(p => ({
@@ -25,7 +25,7 @@ const htmlFiles = htmlPaths.map(p => ({
   htmlPath: p,
   htmlDir: path.dirname(p),
   htmlName: path.basename(p, '.html'),
-  assetAbsoluteWebDir: path.relative(path.join(__dirname, 'example'), path.dirname(p)),
+  assetAbsoluteWebDir: path.relative(path.join(process.cwd(), srcDir), path.dirname(p)),
 }));
 const outputScripts = [];
 
@@ -35,8 +35,8 @@ const transformedHtmlFiles = htmlFiles.map(file => {
     const assetPath = file.ch(el).attr('href');
     const ext = path.extname(assetPath);
     const name = path.basename(assetPath, ext);
-    const relativeBase = path.relative(path.join(__dirname, 'example'), file.htmlDir);
-    const base = path.relative(path.join(__dirname, tempDir, relativeBase), file.htmlDir);
+    const relativeBase = path.relative(path.join(process.cwd(), srcDir), file.htmlDir);
+    const base = path.relative(path.join(process.cwd(), tempDir, relativeBase), file.htmlDir);
     const importPath = path.join(base, assetPath);
     return Object.assign({}, file, {
       assetPath: assetPath.startsWith('/') ? assetPath.slice(1) : assetPath,
@@ -52,8 +52,8 @@ const transformedHtmlFiles = htmlFiles.map(file => {
     const assetPath = file.ch(el).attr('src');
     const ext = path.extname(assetPath);
     const name = path.basename(assetPath, ext);
-    const relativeBase = path.relative(path.join(__dirname, 'example'), file.htmlDir);
-    const base = path.relative(path.join(__dirname, tempDir, relativeBase), file.htmlDir);
+    const relativeBase = path.relative(path.join(process.cwd(), srcDir), file.htmlDir);
+    const base = path.relative(path.join(process.cwd(), tempDir, relativeBase), file.htmlDir);
     const importPath = path.join(base, assetPath);
     return Object.assign({}, file, {
       assetPath: assetPath.startsWith('/') ? assetPath.slice(1) : assetPath,
@@ -77,8 +77,8 @@ const transformedHtmlFiles = htmlFiles.map(file => {
 
     styleGroups.forEach((styleGroup, index) => {
       const importContent = styleGroup.map(style => `import '${style.importPath}';`).join('\n');
-      const relativeBase = path.relative(path.join(__dirname, 'example'), file.htmlDir);
-      const base = path.join(__dirname, tempDir, relativeBase);
+      const relativeBase = path.relative(path.join(process.cwd(), srcDir), file.htmlDir);
+      const base = path.join(process.cwd(), tempDir, relativeBase);
       const assetPath = path.join(base, `${file.htmlName}-styles.js`);
       const entryPointName = path.join(file.assetAbsoluteWebDir, path.basename(assetPath, '.js'));
 
@@ -107,8 +107,8 @@ const transformedHtmlFiles = htmlFiles.map(file => {
 
     scriptGroups.forEach((scriptGroup, index) => {
       const importContent = scriptGroup.map(script => `import '${script.importPath}';`).join('\n');
-      const relativeBase = path.relative(path.join(__dirname, 'example'), file.htmlDir);
-      const base = path.join(__dirname, tempDir, relativeBase);
+      const relativeBase = path.relative(path.join(process.cwd(), srcDir), file.htmlDir);
+      const base = path.join(process.cwd(), tempDir, relativeBase);
       const assetPath = path.join(base, `${file.htmlName}-scripts${index || ''}.js`);
       const entryPointName = path.join(file.assetAbsoluteWebDir, path.basename(assetPath, '.js'));
       const origAssetPath = path.join('/', file.assetAbsoluteWebDir, `${file.htmlName}-scripts.js`);
@@ -126,13 +126,13 @@ const transformedHtmlFiles = htmlFiles.map(file => {
 });
 
 transformedHtmlFiles.forEach(file => {
-  const newPath = path.relative(path.join(__dirname, 'example'), file.htmlPath);
-  fs.outputFileSync(path.join('dest', newPath), file.content);
+  const newPath = path.relative(path.join(process.cwd(), srcDir), file.htmlPath);
+  fs.outputFileSync(path.join(destDir, newPath), file.content);
 });
 
 copyPaths.forEach(p => {
-  const newPath = path.relative(path.join(__dirname, 'example'), p);
-  fs.copySync(p, path.join('dest', newPath));
+  const newPath = path.relative(path.join(process.cwd(), srcDir), p);
+  fs.copySync(p, path.join(destDir, newPath));
 });
 
 const entryPoints = outputScripts.reduce((acc, { assetPath, entryPointName }) => {
@@ -150,7 +150,7 @@ const entryPoints = outputScripts.reduce((acc, { assetPath, entryPointName }) =>
 const devCompiler = webpack({
   entry: entryPoints,
   output: {
-    path: path.resolve(__dirname, 'dest'),
+    path: path.resolve(process.cwd(), destDir),
   },
   module: {
     rules: [
@@ -194,7 +194,7 @@ const devCompiler = webpack({
 const prodCompiler = webpack({
   entry: entryPoints,
   output: {
-    path: path.resolve(__dirname, 'dest'),
+    path: path.resolve(process.cwd(), destDir),
   },
   module: {
     rules: [
@@ -255,7 +255,7 @@ const prodCompiler = webpack({
 
 if (developmentMode) {
   const server = new WebpackDevServer(devCompiler, {
-    contentBase: path.join(__dirname, 'dest'),
+    contentBase: path.join(process.cwd(), destDir),
     watchContentBase: true,
     hot: true,
     compress: true,
