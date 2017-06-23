@@ -10,12 +10,25 @@ const webpack = require('webpack');
 const ExtractTextPlugin = require('extract-text-webpack-plugin');
 const WebpackDevServer = require('webpack-dev-server');
 
-const developmentMode = argv.dev;
-const srcDir = argv.src || 'src';
-const destDir = argv.dest || 'dest';
-const tempDir = argv.temp || 'tmp';
+const opts = {
+  developmentMode: argv.dev,
+  srcDir: argv.src || 'src',
+  destDir: argv.dest || 'dest',
+  tempDir: argv.temp || 'tmp',
+};
+
+const { developmentMode, destDir, tempDir } = opts;
+const srcDirExists = fs.existsSync(opts.srcDir);
+const srcDir = srcDirExists ? opts.srcDir : process.cwd();
+
 fs.removeSync(destDir);
 fs.removeSync(tempDir);
+
+if (!srcDirExists) {
+  console.log('Expected source directory ' + srcDir + 'does not exist.\n\nUsing current directory as source.');
+} else {
+  console.log('Using ' + srcDir + ' as source.');
+}
 
 const paths = walk(srcDir, { nodir: true }).map(file => file.path);
 const copyPaths = paths.filter(p => !['.html', '.css', '.scss', '.less', '.js'].includes(path.extname(p)));
