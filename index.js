@@ -13,7 +13,7 @@ const WebpackDevServer = require('webpack-dev-server');
 const developmentMode = argv.dev;
 const srcDir = argv.src || 'src';
 const destDir = argv.dest || 'dest';
-const tempDir = 'bilt-temp';
+const tempDir = argv.temp || 'tmp';
 fs.removeSync(destDir);
 fs.removeSync(tempDir);
 
