@@ -1,5 +1,7 @@
 const path = require('path');
 const fs = require('fs-extra');
+const argv = require('yargs').argv;
+const _ = require('lodash');
 const opn = require('opn');
 const flatten = require('lodash/flatten');
 const walk = require('klaw-sync');
@@ -8,7 +10,7 @@ const webpack = require('webpack');
 const ExtractTextPlugin = require('extract-text-webpack-plugin');
 const WebpackDevServer = require('webpack-dev-server');
 
-const developmentMode = process.argv[2] === 'dev';
+const developmentMode = argv.dev;
 
 const outputDir = 'dest';
 const tempDir = 'tmp';
@@ -25,14 +27,7 @@ const htmlFiles = htmlPaths.map(p => ({
   htmlName: path.basename(p, '.html'),
   assetAbsoluteWebDir: path.relative(path.join(__dirname, 'example'), path.dirname(p)),
 }));
-const scripts = flatten(htmlFiles.map(file => {
-  return file.ch('script').map((i, el) => {
-    const assetPath = path.join(file.htmlDir, file.ch(el).attr('src'));
-    const relativeDir = path.relative(path.join(__dirname, 'example'), path.dirname(assetPath));
-    const entryPointName = path.join(relativeDir, path.basename(assetPath, '.js'));
-    return Object.assign({}, file, { assetPath, entryPointName });
-  }).get();
-}));
+const outputScripts = [];
 
 const transformedHtmlFiles = htmlFiles.map(file => {
   const stylesheetElements = file.ch('link[rel="stylesheet"]');
@@ -48,26 +43,80 @@ const transformedHtmlFiles = htmlFiles.map(file => {
       importPath,
       ext,
       name,
+      el,
+    });
+  }).get();
+
+  const scriptElements = file.ch('script');
+  const scripts = scriptElements.map((i, el) => {
+    const assetPath = file.ch(el).attr('src');
+    const ext = path.extname(assetPath);
+    const name = path.basename(assetPath, ext);
+    const relativeBase = path.relative(path.join(__dirname, 'example'), file.htmlDir);
+    const base = path.relative(path.join(__dirname, tempDir, relativeBase), file.htmlDir);
+    const importPath = path.join(base, assetPath);
+    return Object.assign({}, file, {
+      assetPath: assetPath.startsWith('/') ? assetPath.slice(1) : assetPath,
+      importPath,
+      ext,
+      name,
+      el,
     });
   }).get();
 
   if (styles.length) {
-    stylesheetElements.remove();
+    const styleGroups = [];
+    styles.forEach(style => {
+      if (file.ch(style.el).prev().is('link[rel=stylesheet]')) {
+        _.last(styleGroups).push(style);
+      } else {
+        styleGroups.push([style]);
+      }
+    });
 
-    if (developmentMode) {
-      const assetPath = path.join('/', file.assetAbsoluteWebDir, `${file.htmlName}-styles.js`);
-      file.ch('head').append(`<script src="${assetPath}"></script>`);
-    } else {
-      const assetPath = path.join('/', file.assetAbsoluteWebDir, `${file.htmlName}-styles.css`);
-      file.ch('head').append(`<link rel="stylesheet" href="${assetPath}"/>`);
-    }
-    const importContent = styles.map(style => `import '${style.importPath}';`).join('\n');
-    const relativeBase = path.relative(path.join(__dirname, 'example'), file.htmlDir);
-    const base = path.join(__dirname, tempDir, relativeBase);
-    const assetPath = path.join(base, `${file.htmlName}-styles.js`);
-    const entryPointName = path.join(file.assetAbsoluteWebDir, path.basename(assetPath, '.js'));
-    fs.outputFileSync(assetPath, importContent);
-    scripts.push(Object.assign({}, file, { assetPath, entryPointName }));
+
+    styleGroups.forEach((styleGroup, index) => {
+      const importContent = styleGroup.map(style => `import '${style.importPath}';`).join('\n');
+      const relativeBase = path.relative(path.join(__dirname, 'example'), file.htmlDir);
+      const base = path.join(__dirname, tempDir, relativeBase);
+      const assetPath = path.join(base, `${file.htmlName}-styles.js`);
+      const entryPointName = path.join(file.assetAbsoluteWebDir, path.basename(assetPath, '.js'));
+
+      if (developmentMode) {
+        const origAssetPath = path.join('/', file.assetAbsoluteWebDir, `${file.htmlName}-styles.js`);
+        file.ch(styleGroup[0].el).replaceWith(`<script src="${origAssetPath}"></script>`);
+      } else {
+        const origAssetPath = path.join('/', file.assetAbsoluteWebDir, `${file.htmlName}-styles.css`);
+        file.ch(styleGroup[0].el).replaceWith(`<link rel="stylesheet" href="${origAssetPath}"/>`);
+      }
+
+      fs.outputFileSync(assetPath, importContent);
+      outputScripts.push(Object.assign({}, file, { assetPath, entryPointName }));
+    });
+  }
+
+  if (scripts.length) {
+    const scriptGroups = [];
+    scripts.forEach(script => {
+      if (file.ch(script.el).prev().is('script')) {
+        _.last(scriptGroups).push(script);
+      } else {
+        scriptGroups.push([script]);
+      }
+    });
+
+    scriptGroups.forEach((scriptGroup, index) => {
+      const importContent = scriptGroup.map(script => `import '${script.importPath}';`).join('\n');
+      const relativeBase = path.relative(path.join(__dirname, 'example'), file.htmlDir);
+      const base = path.join(__dirname, tempDir, relativeBase);
+      const assetPath = path.join(base, `${file.htmlName}-scripts${index || ''}.js`);
+      const entryPointName = path.join(file.assetAbsoluteWebDir, path.basename(assetPath, '.js'));
+      const origAssetPath = path.join('/', file.assetAbsoluteWebDir, `${file.htmlName}-scripts.js`);
+      file.ch(scriptGroup[0].el).replaceWith(`<script src="${origAssetPath}"></script>`);
+      _.tail(scriptGroup).forEach(script => file.ch(script.el).remove());
+      fs.outputFileSync(assetPath, importContent);
+      outputScripts.push(Object.assign({}, file, { assetPath, entryPointName }));
+    });
   }
 
   return {
@@ -86,7 +135,7 @@ copyPaths.forEach(p => {
   fs.copySync(p, path.join('dest', newPath));
 });
 
-const entryPoints = scripts.reduce((acc, { assetPath, entryPointName }) => {
+const entryPoints = outputScripts.reduce((acc, { assetPath, entryPointName }) => {
   acc[entryPointName] = [ assetPath ];
 
   if (developmentMode) {
@@ -97,7 +146,6 @@ const entryPoints = scripts.reduce((acc, { assetPath, entryPointName }) => {
   }
   return acc;
 }, {});
-
 
 const devCompiler = webpack({
   entry: entryPoints,
@@ -112,7 +160,11 @@ const devCompiler = webpack({
         use: {
           loader: 'babel-loader',
           options: {
-            presets: ['react', 'es2015']
+            presets: ['react', 'es2015'],
+            plugins: [
+              require('babel-plugin-transform-object-rest-spread'),
+              require('babel-plugin-transform-class-properties'),
+            ],
           },
         },
       },
@@ -152,7 +204,11 @@ const prodCompiler = webpack({
         use: {
           loader: 'babel-loader',
           options: {
-            presets: ['react', 'es2015']
+            presets: ['react', 'es2015'],
+            plugins: [
+              require('babel-plugin-transform-object-rest-spread'),
+              require('babel-plugin-transform-class-properties'),
+            ],
           },
         },
       },
