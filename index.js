@@ -23,10 +23,10 @@ fs.removeSync(destDir);
 fs.removeSync(tempDir);
 
 if (!fs.existsSync(opts.srcDir)) {
-  console.log('Expected source directory ' + opts.srcDir + ' does not exist.');
+  console.log(`Expected source directory "${opts.srcDir}" does not exist.`);
   process.exit(1);
 } else {
-  console.log('Using ' + opts.srcDir + ' as source.');
+  console.log(`Using "${opts.srcDir}" as source.`);
 }
 
 const paths = walk(srcDir, { nodir: true }).map(file => file.path);
@@ -163,6 +163,7 @@ const devCompiler = webpack({
   entry: entryPoints,
   output: {
     path: path.resolve(process.cwd(), destDir),
+    publicPath: '/',
   },
   module: {
     rules: [
@@ -177,16 +178,17 @@ const devCompiler = webpack({
               require('babel-plugin-transform-object-rest-spread'),
               require('babel-plugin-transform-class-properties'),
             ],
+            cacheDirectory: true,
           },
         },
       },
       {
-        test: /\.css$/,
-        use: ['style-loader', 'css-loader'],
+        test: /\.(png|jpg|jpeg|gif|webp|svg|eot|ttf|woff|woff2)(\?.*)?$/i,
+        loader: 'file-loader',
       },
       {
-        test:/\.(png|jpg|gif|svg|eot|ttf|woff|woff2)$/,
-        loader: 'file-loader',
+        test: /\.css$/,
+        use: ['style-loader', 'css-loader'],
       },
       {
         test: /\.scss$/,
@@ -207,6 +209,7 @@ const prodCompiler = webpack({
   entry: entryPoints,
   output: {
     path: path.resolve(process.cwd(), destDir),
+    publicPath: '/',
   },
   module: {
     rules: [
@@ -221,6 +224,7 @@ const prodCompiler = webpack({
               require('babel-plugin-transform-object-rest-spread'),
               require('babel-plugin-transform-class-properties'),
             ],
+            cacheDirectory: true,
           },
         },
       },
@@ -232,7 +236,7 @@ const prodCompiler = webpack({
         }),
       },
       {
-        test:/\.(png|jpg|gif|svg|eot|ttf|woff|woff2)$/,
+        test: /\.(png|jpg|jpeg|gif|webp|svg|eot|ttf|woff|woff2)(\?.*)?$/i,
         loader: 'file-loader',
         query: {
           useRelativePath: true,
