@@ -7,6 +7,7 @@ const flatten = require('lodash/flatten');
 const walk = require('klaw-sync');
 const cheerio = require('cheerio');
 const webpack = require('webpack');
+const merge = require('webpack-merge');
 const ExtractTextPlugin = require('extract-text-webpack-plugin');
 const WebpackDevServer = require('webpack-dev-server');
 
@@ -161,7 +162,7 @@ const entryPoints = outputScripts.reduce((acc, { assetPath, entryPointName }) =>
   return acc;
 }, {});
 
-const devCompiler = webpack({
+const webpackConfigBase = {
   entry: entryPoints,
   output: {
     path: path.resolve(process.cwd(), destDir),
@@ -188,6 +189,13 @@ const devCompiler = webpack({
         test: /\.(png|jpg|jpeg|gif|webp|svg|eot|ttf|woff|woff2)(\?.*)?$/i,
         loader: 'file-loader',
       },
+    ],
+  },
+};
+
+const webpackConfigDev = {
+  module: {
+    rules: [
       {
         test: /\.css$/,
         use: ['style-loader', 'css-loader'],
@@ -205,36 +213,16 @@ const devCompiler = webpack({
   plugins: [
     new webpack.HotModuleReplacementPlugin(),
   ],
-});
+};
 
-const prodCompiler = webpack({
-  entry: entryPoints,
-  output: {
-    path: path.resolve(process.cwd(), destDir),
-    publicPath: '/',
-  },
+const webpackConfigProd = {
   module: {
     rules: [
-      {
-        test: /\.js$/,
-        exclude: /node_modules/,
-        use: {
-          loader: 'babel-loader',
-          options: {
-            presets: ['react', 'es2015'],
-            plugins: [
-              require('babel-plugin-transform-object-rest-spread'),
-              require('babel-plugin-transform-class-properties'),
-            ],
-            cacheDirectory: true,
-          },
-        },
-      },
       {
         test: /\.css$/,
         use: ExtractTextPlugin.extract({
           fallback: 'style-loader',
-          use: 'css-loader',
+          use: ['css-loader'],
         }),
       },
       {
@@ -247,21 +235,13 @@ const prodCompiler = webpack({
       {
         test: /\.scss$/,
         use: ExtractTextPlugin.extract({
-          use: [{
-            loader: 'css-loader',
-          }, {
-            loader: 'sass-loader',
-          }],
+          use: ['css-loader', 'sass-loader'],
         }),
       },
       {
         test: /\.less$/,
         use: ExtractTextPlugin.extract({
-          use: [{
-            loader: 'css-loader',
-          }, {
-            loader: 'less-loader',
-          }],
+          use: ['css-loader', 'less-loader'],
         }),
       },
     ],
@@ -269,10 +249,11 @@ const prodCompiler = webpack({
   plugins: [
     new ExtractTextPlugin('[name].css'),
   ],
-});
+};
 
 if (developmentMode) {
-  const server = new WebpackDevServer(devCompiler, {
+  const compiler = webpack(merge(webpackConfigBase, webpackConfigDev));
+  const server = new WebpackDevServer(compiler, {
     contentBase: path.join(process.cwd(), destDir),
     watchContentBase: true,
     hot: true,
@@ -288,7 +269,8 @@ if (developmentMode) {
   server.listen(8080, '127.0.0.1', () => console.log('Starting server on http://localhost:8080'));
   opn('http://localhost:8080');
 } else {
-  prodCompiler.run((err, stats) => {
+  const compiler = webpack(merge(webpackConfigBase, webpackConfigProd));
+  compiler.run((err, stats) => {
     if (err) {
       console.error(err.stack || err);
       if (err.details) {
