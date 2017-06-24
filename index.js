@@ -2,13 +2,13 @@ const path = require('path');
 const fs = require('fs-extra');
 const argv = require('yargs').argv;
 const _ = require('lodash');
-const opn = require('opn');
 const flatten = require('lodash/flatten');
 const walk = require('klaw-sync');
 const cheerio = require('cheerio');
 const webpack = require('webpack');
-const WebpackDevServer = require('webpack-dev-server');
 const getWebpackConfig = require('./webpack-config');
+const runDevServer = require('./serve');
+const runBuild = require('./build');
 
 const opts = {
   devMode: argv.dev,
@@ -161,42 +161,10 @@ const entryPoints = outputScripts.reduce((acc, { assetPath, entryPointName }) =>
   return acc;
 }, {});
 
-const compiler = webpack(getWebpackConfig(devMode, entryPoints, destDir));
+const compiler = webpack(getWebpackConfig({ devMode, entryPoints, destDir }));
 
 if (devMode) {
-  const server = new WebpackDevServer(compiler, {
-    contentBase: path.join(process.cwd(), destDir),
-    watchContentBase: true,
-    hot: true,
-    compress: true,
-    stats: {
-      colors: true,
-    },
-    staticOptions: {
-      extensions: ['html'],
-    },
-  });
-
-  server.listen(8080, '127.0.0.1', () => console.log('Starting server on http://localhost:8080'));
-  opn('http://localhost:8080');
+  runDevServer({ compiler, destDir });
 } else {
-  compiler.run((err, stats) => {
-    if (err) {
-      console.error(err.stack || err);
-      if (err.details) {
-        console.error(err.details);
-      }
-      return;
-    }
-
-    const info = stats.toJson();
-
-    if (stats.hasErrors()) {
-      console.error(info.errors);
-    }
-
-    if (stats.hasWarnings()) {
-      console.warn(info.warnings)
-    }
-  });
+  runBuild({ compiler });
 }

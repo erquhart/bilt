@@ -90,7 +90,7 @@ const prodConfig = {
   ],
 };
 
-module.exports = (devMode, entryPoints, destDir) => {
+module.exports = ({ devMode, entryPoints, destDir }) => {
   const config = merge(baseConfig, devMode ? devConfig : prodConfig);
   config.entry = entryPoints;
   config.output.path = path.resolve(process.cwd(), destDir);
