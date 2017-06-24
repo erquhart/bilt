@@ -1,32 +1,23 @@
 const path = require('path');
 const fs = require('fs-extra');
-const argv = require('yargs').argv;
 const _ = require('lodash');
 const flatten = require('lodash/flatten');
 const walk = require('klaw-sync');
 const cheerio = require('cheerio');
 const webpack = require('webpack');
+const { devMode, srcDir, destDir, tempDir } = require('./lib/config');
 const getWebpackConfig = require('./lib/webpack-config');
+const runClean = require('./lib/clean');
 const runDevServer = require('./lib/serve');
 const runBuild = require('./lib/build');
 
-const opts = {
-  devMode: argv.dev,
-  srcDir: argv.src || 'src',
-  destDir: argv.dest || 'dest',
-  tempDir: argv.temp || 'tmp',
-};
+runClean();
 
-const { devMode, srcDir, destDir, tempDir } = opts;
-
-fs.removeSync(destDir);
-fs.removeSync(tempDir);
-
-if (!fs.existsSync(opts.srcDir)) {
-  console.log(`Expected source directory "${opts.srcDir}" does not exist.`);
+if (!fs.existsSync(srcDir)) {
+  console.log(`Expected source directory "${srcDir}" does not exist.`);
   process.exit(1);
 } else {
-  console.log(`Using "${opts.srcDir}" as source.`);
+  console.log(`Using "${srcDir}" as source.`);
 }
 
 const paths = walk(srcDir, { nodir: true }).map(file => file.path);
@@ -161,10 +152,10 @@ const entryPoints = outputScripts.reduce((acc, { assetPath, entryPointName }) =>
   return acc;
 }, {});
 
-const compiler = webpack(getWebpackConfig({ devMode, entryPoints, destDir }));
+const compiler = webpack(getWebpackConfig(entryPoints));
 
 if (devMode) {
-  runDevServer({ compiler, destDir });
+  runDevServer(compiler);
 } else {
-  runBuild({ compiler });
+  runBuild(compiler);
 }
