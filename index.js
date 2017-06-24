@@ -6,9 +6,9 @@ const flatten = require('lodash/flatten');
 const walk = require('klaw-sync');
 const cheerio = require('cheerio');
 const webpack = require('webpack');
-const getWebpackConfig = require('./webpack-config');
-const runDevServer = require('./serve');
-const runBuild = require('./build');
+const getWebpackConfig = require('./lib/webpack-config');
+const runDevServer = require('./lib/serve');
+const runBuild = require('./lib/build');
 
 const opts = {
   devMode: argv.dev,
