@@ -7,18 +7,17 @@ const flatten = require('lodash/flatten');
 const walk = require('klaw-sync');
 const cheerio = require('cheerio');
 const webpack = require('webpack');
-const merge = require('webpack-merge');
-const ExtractTextPlugin = require('extract-text-webpack-plugin');
 const WebpackDevServer = require('webpack-dev-server');
+const getWebpackConfig = require('./webpack-config');
 
 const opts = {
-  developmentMode: argv.dev,
+  devMode: argv.dev,
   srcDir: argv.src || 'src',
   destDir: argv.dest || 'dest',
   tempDir: argv.temp || 'tmp',
 };
 
-const { developmentMode, srcDir, destDir, tempDir } = opts;
+const { devMode, srcDir, destDir, tempDir } = opts;
 
 fs.removeSync(destDir);
 fs.removeSync(tempDir);
@@ -96,7 +95,7 @@ const transformedHtmlFiles = htmlFiles.map(file => {
       const assetPath = path.join(base, `${name}.js`);
       const entryPointName = path.join(file.assetAbsoluteWebDir, path.basename(assetPath, '.js'));
 
-      if (developmentMode) {
+      if (devMode) {
         const origAssetPath = path.join('/', file.assetAbsoluteWebDir, `${name}.js`);
         file.ch(styleGroup[0].el).replaceWith(`<script src="${origAssetPath}"></script>`);
       } else {
@@ -153,7 +152,7 @@ copyPaths.forEach(p => {
 const entryPoints = outputScripts.reduce((acc, { assetPath, entryPointName }) => {
   acc[entryPointName] = [ assetPath ];
 
-  if (developmentMode) {
+  if (devMode) {
     acc[entryPointName] = [
       'webpack-dev-server/client?http://localhost:8080',
       'webpack/hot/dev-server',
@@ -162,97 +161,9 @@ const entryPoints = outputScripts.reduce((acc, { assetPath, entryPointName }) =>
   return acc;
 }, {});
 
-const webpackConfigBase = {
-  entry: entryPoints,
-  output: {
-    path: path.resolve(process.cwd(), destDir),
-    publicPath: '/',
-  },
-  module: {
-    rules: [
-      {
-        test: /\.js$/,
-        exclude: /node_modules/,
-        use: {
-          loader: 'babel-loader',
-          options: {
-            presets: ['react', 'es2015'],
-            plugins: [
-              require('babel-plugin-transform-object-rest-spread'),
-              require('babel-plugin-transform-class-properties'),
-            ],
-            cacheDirectory: true,
-          },
-        },
-      },
-      {
-        test: /\.(png|jpg|jpeg|gif|webp|svg|eot|ttf|woff|woff2)(\?.*)?$/i,
-        loader: 'file-loader',
-      },
-    ],
-  },
-};
+const compiler = webpack(getWebpackConfig(devMode, entryPoints, destDir));
 
-const webpackConfigDev = {
-  module: {
-    rules: [
-      {
-        test: /\.css$/,
-        use: ['style-loader', 'css-loader'],
-      },
-      {
-        test: /\.scss$/,
-        use: ['style-loader', 'css-loader', 'sass-loader'],
-      },
-      {
-        test: /\.less$/,
-        use: ['style-loader', 'css-loader', 'less-loader'],
-      },
-    ],
-  },
-  plugins: [
-    new webpack.HotModuleReplacementPlugin(),
-  ],
-};
-
-const webpackConfigProd = {
-  module: {
-    rules: [
-      {
-        test: /\.css$/,
-        use: ExtractTextPlugin.extract({
-          fallback: 'style-loader',
-          use: ['css-loader'],
-        }),
-      },
-      {
-        test: /\.(png|jpg|jpeg|gif|webp|svg|eot|ttf|woff|woff2)(\?.*)?$/i,
-        loader: 'file-loader',
-        query: {
-          useRelativePath: true,
-        },
-      },
-      {
-        test: /\.scss$/,
-        use: ExtractTextPlugin.extract({
-          use: ['css-loader', 'sass-loader'],
-        }),
-      },
-      {
-        test: /\.less$/,
-        use: ExtractTextPlugin.extract({
-          use: ['css-loader', 'less-loader'],
-        }),
-      },
-    ],
-  },
-  plugins: [
-    new ExtractTextPlugin('[name].css'),
-  ],
-};
-
-if (developmentMode) {
-  const compiler = webpack(merge(webpackConfigBase, webpackConfigDev));
+if (devMode) {
   const server = new WebpackDevServer(compiler, {
     contentBase: path.join(process.cwd(), destDir),
     watchContentBase: true,
@@ -269,7 +180,6 @@ if (developmentMode) {
   server.listen(8080, '127.0.0.1', () => console.log('Starting server on http://localhost:8080'));
   opn('http://localhost:8080');
 } else {
-  const compiler = webpack(merge(webpackConfigBase, webpackConfigProd));
   compiler.run((err, stats) => {
     if (err) {
       console.error(err.stack || err);
