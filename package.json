@@ -1,6 +1,6 @@
 {
   "name": "bilt",
-  "version": "0.2.3",
+  "version": "0.2.4",
   "description": "A build tool that just works.",
   "main": "index.js",
   "scripts": {
